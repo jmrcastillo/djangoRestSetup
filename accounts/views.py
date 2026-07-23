@@ -1,13 +1,20 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 # Response
 from utils.response_transform import send_response
+
+from .serializers import (
+    RegisterSerializer,
+    CustomTokenObtainPairSerializer,
+    MeSerializer,
+)
 
 
 @api_view(['GET'])
@@ -124,3 +131,24 @@ def logout_view(request):
     response.delete_cookie('refresh_token')
 
     return response
+
+
+@api_view(["GET", "PATCH"])
+@permission_classes([IsAuthenticated])
+def me_view(request):
+    """
+    View profile of current user.
+
+    """
+
+    if request.method == "GET":
+        serializer = MeSerializer(request.user)
+        return Response(serializer.data)
+
+    elif request.method == "PATCH":
+        serializer = MeSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+

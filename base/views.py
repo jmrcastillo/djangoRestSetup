@@ -133,6 +133,8 @@ def me_view(request):
     View profile of current user.
 
     """
+    print("User:", request.user)
+    print("Auth:", request.auth)
 
     if request.method == "GET":
         serializer = MeSerializer(request.user)
