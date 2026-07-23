@@ -126,3 +126,21 @@ def logout_view(request):
     return response
 
 
+@api_view(["GET", "PATCH"])
+@permission_classes([IsAuthenticated])
+def me_view(request):
+    """
+    View profile of current user.
+
+    """
+
+    if request.method == "GET":
+        serializer = MeSerializer(request.user)
+        return Response(serializer.data)
+
+    elif request.method == "PATCH":
+        serializer = MeSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
