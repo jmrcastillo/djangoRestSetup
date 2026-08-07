@@ -139,6 +139,7 @@ def login_view(request):
 
 
 @api_view(["POST"])
+@permission_classes([AllowAny])
 def refresh_view(request):
     """
     Refresh the JWT access token using the refresh token cookie.
