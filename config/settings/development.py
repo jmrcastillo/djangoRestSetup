@@ -2,12 +2,19 @@
 
 from .base import *
 
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1'
 ]
+
+# Jwt setup
+JWT_REFRESH_COOKIE_NAME = "refresh_token"
+JWT_COOKIE_HTTPONLY = True
+JWT_COOKIE_SECURE = not DEBUG
+JWT_COOKIE_SAMESITE = "Lax"
+JWT_COOKIE_MAX_AGE = 60 * 60 * 24 * 7  # 7 days
 
 DATABASES = {
     'default': {

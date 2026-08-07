@@ -5,12 +5,17 @@ from decouple import config
 import os
 import environ
 
-DEBUG = False
-
-SECRET_KEY = os.environ.get("SECRET_KEY", "unsafe-dev-key")
-DEBUG = os.environ.get("DEBUG", "False") == "True"
+SECRET_KEY = os.environ.get("SECRET_KEY")
+DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 
 ALLOWED_HOSTS = ['yourdomain.com']
+
+# Jwt setup
+JWT_REFRESH_COOKIE_NAME = "refresh_token"
+JWT_COOKIE_HTTPONLY = True
+JWT_COOKIE_SECURE = not DEBUG
+JWT_COOKIE_SAMESITE = "Lax"
+JWT_COOKIE_MAX_AGE = 60 * 60 * 24 * 7  # 7 days
 
 # SSL & CSRF
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
