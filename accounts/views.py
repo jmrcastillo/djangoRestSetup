@@ -7,6 +7,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from django.conf import settings
+
 # Response
 from utils.response_transform import send_response
 
@@ -36,6 +39,179 @@ def getRoutes(request):
     ]
 
     return Response(routes)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def login_view(request):
+    """
+    Authenticate a user and issue JWT tokens.
+
+    POST:
+        Body (JSON):
+            - username (str): Required.
+            - password (str): Required.
+
+    Returns:
+        200:
+            - Access token.
+            - Refresh token (stored as HttpOnly cookie).
+            - Authenticated user information.
+
+        400:
+            - Invalid credentials or validation errors.
+
+        500:
+            - Unexpected server error.
+    """
+    username = request.data.get("username")
+
+    logger.info("Login attempt. username=%s", username)
+
+    serializer = CustomTokenObtainPairSerializer(data=request.data)
+
+    if not serializer.is_valid():
+        logger.warning(
+            "Login failed. username=%s errors=%s",
+            username,
+            serializer.errors,
+        )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        data = serializer.validated_data
+
+        logger.info(
+            "User authenticated successfully. user_id=%s username=%s",
+            data["user"]["id"],
+            data["user"]["username"],
+        )
+
+        # Remove refresh token from the response body
+        refresh_token = data.pop("refresh")
+
+        response_data = {
+            "status": "success",
+            "message": "Login successful.",
+            "access": data["access"],
+            "user": data["user"],
+        }
+
+        # Add refresh token to response if development is true
+        if settings.DEBUG:
+            response_data["refresh"] = refresh_token
+
+        response = send_response(response_data)
+
+        response.set_cookie(
+            key=settings.JWT_REFRESH_COOKIE_NAME,
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="None",
+            max_age=settings.JWT_COOKIE_MAX_AGE,
+        )
+
+        logger.info(
+            "Refresh token cookie set successfully. username=%s",
+            data["user"]["username"],
+        )
+
+        return response
+
+    except Exception:
+        logger.exception(
+            "Unexpected error during login. username=%s",
+            username,
+        )
+
+        return send_response(
+            {
+                "status": "error",
+                "message": "An unexpected error occurred.",
+            },
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+def refresh_view(request):
+    """
+    Refresh the JWT access token using the refresh token cookie.
+
+    POST:
+        Cookie:
+            - refresh_token (HttpOnly): Required.
+
+    Returns:
+        200:
+            - New access token.
+
+        400:
+            - Missing, invalid, or expired refresh token.
+
+        500:
+            - Unexpected server error.
+    """
+    logger.info("Access token refresh requested.")
+
+    refresh = request.COOKIES.get("refresh_token")
+
+    if not refresh:
+        logger.warning("Token refresh failed: Refresh token cookie not found.")
+
+        return send_response(
+            {
+                "status": "error",
+                "message": "Refresh token not found.",
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        serializer = TokenRefreshSerializer(
+            data={"refresh": refresh}
+        )
+
+        if not serializer.is_valid():
+            logger.warning(
+                "Token refresh failed: Invalid refresh token. errors=%s",
+                serializer.errors,
+            )
+
+            return send_response(
+                {
+                    "status": "error",
+                    "message": "Invalid or expired refresh token.",
+                    "errors": serializer.errors,
+                },
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        logger.info("Access token refreshed successfully.")
+
+        return send_response(
+            {
+                "status": "success",
+                "message": "Access token refreshed successfully.",
+                "access": serializer.validated_data["access"],
+            }
+        )
+
+    except Exception:
+        logger.exception("Unexpected error while refreshing access token.")
+
+        return send_response(
+            {
+                "status": "error",
+                "message": "An unexpected error occurred.",
+            },
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(['POST'])
