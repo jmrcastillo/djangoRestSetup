@@ -216,6 +216,7 @@ def refresh_view(request):
 
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def register_view(request):
     """
     Register a new user.
